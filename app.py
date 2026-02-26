@@ -238,8 +238,17 @@ def add_song_sidebar():
     tags_text = st.sidebar.text_input("Tags (comma separated)")
 
     if st.sidebar.button("Add to playlist"):
+        # break comma-separated tags into a list
         raw_tags = [t.strip() for t in tags_text.split(",")]
         tags = [t for t in raw_tags if t]
+
+        # validate basic required fields up-front
+        if not title.strip():
+            st.sidebar.error("Song title cannot be empty.")
+            return
+        if not artist.strip():
+            st.sidebar.error("Artist name cannot be empty.")
+            return
 
         song: Song = {
             "title": title,
@@ -248,11 +257,24 @@ def add_song_sidebar():
             "energy": energy,
             "tags": tags,
         }
-        if title and artist:
-            normalized = normalize_song(song)
-            all_songs = st.session_state.songs[:]
-            all_songs.append(normalized)
-            st.session_state.songs = all_songs
+
+        normalized = normalize_song(song)
+
+        # check for duplicates by title/artist in the current list
+        existing = st.session_state.songs
+        dup = any(
+            s.get("title") == normalized["title"]
+            and s.get("artist") == normalized["artist"]
+            for s in existing
+        )
+        if dup:
+            st.sidebar.warning("That song is already in the playlist.")
+            return
+
+        # all good, append
+        all_songs = st.session_state.songs[:]
+        all_songs.append(normalized)
+        st.session_state.songs = all_songs
 
 
 def playlist_tabs(playlists):

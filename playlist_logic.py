@@ -80,16 +80,42 @@ def classify_song(song: Song, profile: Dict[str, object]) -> str:
     return "Mixed"
 
 
-def build_playlists(songs: List[Song], profile: Dict[str, object]) -> PlaylistMap:
-    """Group songs into playlists based on mood and profile."""
+def build_playlists(songs: List[Song], profile: Dict[str, object]) -> PlaylistMap:##<--
+    """Group songs into playlists based on mood and profile.
+
+    The incoming list may contain duplicates or invalid entries (missing
+    title/artist).  We normalize every song, skip those without a non-empty
+    title/artist, and keep a set of seen identity tuples so that the same song
+    isn't added twice.  The identity is currently (title, artist) which are
+    already normalized strings.
+    """
     playlists: PlaylistMap = {
         "Hype": [],
         "Chill": [],
         "Mixed": [],
     }
 
+    seen: set[tuple[str, str]] = set()  # (title, artist) pairs we've added
+
     for song in songs:
+        if song is None:
+            # guard against null entries coming from elsewhere
+            continue
+
         normalized = normalize_song(song)
+
+        # ensure we have the two required fields; if not, skip silently
+        title = normalized.get("title", "")
+        artist = normalized.get("artist", "")
+        if not title or not artist:
+            continue
+
+        key = (title, artist)
+        if key in seen:
+            # duplicate -- ignore
+            continue
+        seen.add(key)
+
         mood = classify_song(normalized, profile)
         normalized["mood"] = mood
         playlists[mood].append(normalized)
@@ -98,11 +124,28 @@ def build_playlists(songs: List[Song], profile: Dict[str, object]) -> PlaylistMa
 
 
 def merge_playlists(a: PlaylistMap, b: PlaylistMap) -> PlaylistMap:
-    """Merge two playlist maps into a new map."""
+    """Merge two playlist maps into a new map.
+
+    When two maps are combined they may contain the same song in both sources
+    (e.g. merging session state with the default list).  We deduplicate using
+    the same (title, artist) tuple logic used in ``build_playlists``.
+    """
     merged: PlaylistMap = {}
     for key in set(list(a.keys()) + list(b.keys())):
-        merged[key] = a.get(key, [])
-        merged[key].extend(b.get(key, []))
+        seen: set[tuple[str, str]] = set()
+        merged[key] = []
+        for s in a.get(key, []) + b.get(key, []):
+            if s is None:
+                continue
+            title = s.get("title", "")
+            artist = s.get("artist", "")
+            if not title or not artist:
+                continue
+            k = (title, artist)
+            if k in seen:
+                continue
+            seen.add(k)
+            merged[key].append(s)
     return merged
 
 
