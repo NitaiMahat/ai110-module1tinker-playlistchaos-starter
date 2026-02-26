@@ -12,23 +12,42 @@ DEFAULT_PROFILE = {
 }
 
 
-def normalize_title(title: str) -> str:
-    """Normalize a song title for comparisons."""
-    if not isinstance(title, str):
+
+def normalize_str(value: object, *, lower: bool = False) -> str:
+    """Trim a value and optionally lowercase it.
+
+    Non-string inputs return an empty string.  This consolidates the
+    shared behaviour previously duplicated across ``normalize_title``,
+    ``normalize_artist`` and ``normalize_genre``.
+    """
+    if not isinstance(value, str):
         return ""
-    return title.strip()
+    s = value.strip()
+    return s.lower() if lower else s
 
 
-def normalize_artist(artist: str) -> str:
-    """Normalize an artist name for comparisons."""
-    if not artist:
-        return ""
-    return artist.strip().lower()
+def normalize_title(title: object) -> str:
+    """Normalize a song title for comparisons.
+
+    Titles preserve their original case but are stripped of whitespace.
+    """
+    return normalize_str(title)
 
 
-def normalize_genre(genre: str) -> str:
-    """Normalize a genre name for comparisons."""
-    return genre.lower().strip()
+def normalize_artist(artist: object) -> str:
+    """Normalize an artist name for comparisons.
+
+    Artists are lower‑cased so that comparisons aren't case‑sensitive.
+    """
+    return normalize_str(artist, lower=True)
+
+
+def normalize_genre(genre: object) -> str:
+    """Normalize a genre name for comparisons.
+
+    Genres are also lower‑cased and trimmed.
+    """
+    return normalize_str(genre, lower=True)
 
 
 def normalize_song(raw: Song) -> Song:
